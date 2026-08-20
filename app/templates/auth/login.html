@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Log in — FreshFold{% endblock %}
+{% block content %}
+<div class="wrap-narrow">
+  <div class="card">
+    <h1>Log in</h1>
+    <p class="muted">Customers, laundry staff, and admin all log in here.</p>
+    <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="phone">Phone number</label>
+      <input type="text" id="phone" name="phone" required autofocus>
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" required>
+      <button class="btn btn-primary btn-block" type="submit" style="margin-top:18px;">Log in</button>
+    </form>
+    <p class="field-hint" style="margin-top:16px;">New customer? <a href="{{ url_for('auth.signup') }}">Create an account</a></p>
+    <hr class="divider">
+    <p class="field-hint">
+      Demo accounts — admin: <strong>9999900001</strong> / admin123 ·
+      staff: <strong>9999900002</strong> / staff123
+    </p>
+  </div>
+</div>
+{% endblock %}

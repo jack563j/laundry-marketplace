@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Sign up — FreshFold{% endblock %}
+{% block content %}
+<div class="wrap-narrow">
+  <div class="card">
+    <h1>Create your account</h1>
+    <p class="muted">We ask for an ID proof photo so pickups stay safe — an admin reviews it before your first booking.</p>
+    <form method="POST" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="name">Full name</label>
+      <input type="text" id="name" name="name" required>
+
+      <label for="phone">Phone number</label>
+      <input type="text" id="phone" name="phone" required>
+
+      <label for="email">Email (optional)</label>
+      <input type="email" id="email" name="email">
+
+      <label for="address">Address</label>
+      <textarea id="address" name="address" rows="2" required></textarea>
+
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" required>
+
+      <label for="id_proof">ID proof photo (Aadhaar / college ID / etc.)</label>
+      <input type="file" id="id_proof" name="id_proof" accept="image/*" required>
+      <p class="field-hint">This is a demo — no real KYC verification is performed, an admin just eyeballs it.</p>
+
+      <label for="selfie">A current photo of you</label>
+      <input type="file" id="selfie" name="selfie" accept="image/*" capture="user" required>
+      <p class="field-hint">On a phone this opens your camera directly. Our pickup staff use this to confirm they're handing your laundry to the right person.</p>
+
+      <button class="btn btn-primary btn-block" type="submit" style="margin-top:18px;">Create account</button>
+    </form>
+    <p class="field-hint" style="margin-top:16px;">Already have an account? <a href="{{ url_for('auth.login') }}">Log in</a></p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Book a pickup — FreshFold{% endblock %}
+{% block content %}
+<div class="wrap-narrow">
+  <div class="card">
+    <h1>Book a pickup</h1>
+    <p class="muted">Pick a slot the admin has opened up. You'll add photos of your items next.</p>
+
+    {% if slots %}
+    <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Available slots</label>
+      {% for s in slots %}
+        <label style="display:flex; align-items:flex-start; gap:10px; font-weight:400; padding:10px; border:1.5px solid var(--line); border-radius:8px; margin-bottom:8px; cursor:pointer;">
+          <input type="radio" name="slot_id" value="{{ s.id }}" required style="width:auto; margin-top:3px;">
+          <span>
+            <strong>{{ s.date.strftime('%A, %d %b') }}</strong> · {{ s.start_time.strftime('%H:%M') }}–{{ s.end_time.strftime('%H:%M') }}<br>
+            <span class="muted">{{ s.location }} · {{ s.capacity - s.booked_count }} spot(s) left</span>
+          </span>
+        </label>
+      {% endfor %}
+
+      <label for="special_notes">Notes for the pickup (optional)</label>
+      <textarea id="special_notes" name="special_notes" rows="2" placeholder="e.g. Call before arriving, gate code 1234"></textarea>
+
+      <button class="btn btn-primary btn-block" type="submit" style="margin-top:18px;">Continue to add items</button>
+    </form>
+    {% else %}
+      <div class="empty-state">No pickup slots are open right now. Check back soon.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

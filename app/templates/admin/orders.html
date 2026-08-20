@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Orders — Admin{% endblock %}
+{% block content %}
+<div class="wrap">
+  <div class="page-header">
+    <div>
+      <h1>Orders</h1>
+      <p>All customer orders and their current stage.</p>
+    </div>
+  </div>
+
+  <div style="margin-bottom:16px;">
+    <a class="btn btn-small {{ 'btn-primary' if status=='PENDING_PICKUP_APPROVAL' else 'btn-neutral' }}" href="{{ url_for('admin.orders', status='PENDING_PICKUP_APPROVAL') }}">Awaiting approval</a>
+    <a class="btn btn-small {{ 'btn-primary' if status=='ALL' else 'btn-neutral' }}" href="{{ url_for('admin.orders', status='ALL') }}">All</a>
+  </div>
+
+  {% if orders %}
+  <table>
+    <thead><tr><th>Order</th><th>Customer</th><th>Slot</th><th>Items</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {% for o in orders %}
+      <tr>
+        <td data-label="Order">#{{ o.id }}</td>
+        <td data-label="Customer">{{ o.customer.name }}</td>
+        <td data-label="Slot">{{ o.pickup_slot.date.strftime('%d %b') }}, {{ o.pickup_slot.start_time.strftime('%H:%M') }}</td>
+        <td data-label="Items">{{ o.items|length }}</td>
+        <td data-label="Status">
+          {% if o.status == 'CANCELLED' %}<span class="badge badge-coral">Cancelled</span>
+          {% elif o.status == 'PENDING_PICKUP_APPROVAL' %}<span class="badge badge-amber">Needs approval</span>
+          {% else %}<span class="badge badge-teal">{{ o.status_label }}</span>{% endif %}
+        </td>
+        <td data-label=""><a class="btn btn-neutral btn-small" href="{{ url_for('admin.order_detail', order_id=o.id) }}">Review</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <div class="empty-state">Nothing here right now.</div>
+  {% endif %}
+</div>
+{% endblock %}

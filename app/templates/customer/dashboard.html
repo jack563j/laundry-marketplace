@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}My orders — FreshFold{% endblock %}
+{% block content %}
+<div class="wrap">
+
+  {% if current_user.verification_status == 'PENDING' %}
+    <div class="card" style="border-color: var(--amber);">
+      <strong>Your ID proof is under review.</strong>
+      <p class="muted" style="margin:4px 0 0;">You'll be able to book a pickup once an admin approves your account.</p>
+    </div>
+  {% elif current_user.verification_status == 'REJECTED' %}
+    <div class="card" style="border-color: var(--coral);">
+      <strong>Your ID verification was rejected.</strong>
+      <p class="muted" style="margin:4px 0 0;">{{ current_user.rejection_reason }}</p>
+    </div>
+  {% endif %}
+
+  <div class="page-header">
+    <div>
+      <h1>My orders</h1>
+      <p>Track every pickup from booking to delivery.</p>
+    </div>
+    {% if current_user.is_verified_customer %}
+      <a class="btn btn-primary" href="{{ url_for('customer.book') }}">Book a pickup</a>
+    {% else %}
+      <button class="btn btn-primary" disabled title="Wait for ID approval">Book a pickup</button>
+    {% endif %}
+  </div>
+
+  {% if orders %}
+    <table>
+      <thead>
+        <tr><th>Order</th><th>Slot</th><th>Items</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for o in orders %}
+        <tr>
+          <td data-label="Order">#{{ o.id }}</td>
+          <td data-label="Slot">{{ o.pickup_slot.date.strftime('%d %b') }}, {{ o.pickup_slot.start_time.strftime('%H:%M') }}–{{ o.pickup_slot.end_time.strftime('%H:%M') }}</td>
+          <td data-label="Items">{{ o.items|length }}</td>
+          <td data-label="Status">
+            {% if o.status == 'CANCELLED' %}
+              <span class="badge badge-coral">Cancelled</span>
+            {% elif o.status == 'DELIVERED' %}
+              <span class="badge badge-teal">Delivered</span>
+            {% elif o.status in ['AWAITING_ITEMS','PENDING_PICKUP_APPROVAL'] %}
+              <span class="badge badge-amber">{{ o.status_label }}</span>
+            {% else %}
+              <span class="badge badge-teal">{{ o.status_label }}</span>
+            {% endif %}
+          </td>
+          <td data-label=""><a class="btn btn-neutral btn-small" href="{{ url_for('customer.order_detail', order_id=o.id) }}">View</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="empty-state">No orders yet. Book your first pickup once your account is approved.</div>
+  {% endif %}
+</div>
+{% endblock %}

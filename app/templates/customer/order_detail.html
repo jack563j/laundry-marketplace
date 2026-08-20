@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Order #{{ order.id }} — FreshFold{% endblock %}
+{% block content %}
+<div class="wrap">
+  <div class="page-header">
+    <div>
+      <h1>Order #{{ order.id }}</h1>
+      <p>{{ order.pickup_slot.date.strftime('%A, %d %b') }} · {{ order.pickup_slot.start_time.strftime('%H:%M') }}–{{ order.pickup_slot.end_time.strftime('%H:%M') }} · {{ order.pickup_slot.location }}</p>
+    </div>
+    {% if order.status not in ['PICKED_UP','AT_LAUNDRY','WASHING','READY','OUT_FOR_DELIVERY','DELIVERED','CANCELLED'] %}
+    <form method="POST" action="{{ url_for('customer.cancel_order', order_id=order.id) }}" onsubmit="return confirm('Cancel this order?');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-outline btn-small" type="submit">Cancel order</button>
+    </form>
+    {% endif %}
+  </div>
+
+  {% if order.status == 'AWAITING_ITEMS' %}
+    <div class="card">
+      <h3>Add your items</h3>
+      <p class="muted">Upload a photo of each piece with any special instructions. This is what the admin checks against your bag before approving pickup, and what the laundry team checks against on arrival.</p>
+
+      {% if order.items %}
+      <div class="item-grid">
+        {% for item in order.items %}
+        <div class="item-card">
+          <img src="{{ item_photo_url(item.photo_path) }}" alt="{{ item.description }}">
+          <div class="item-body">
+            <div class="item-desc">{{ item.description or "Item " ~ loop.index }}</div>
+            {% if item.instructions %}<div class="item-instr">{{ item.instructions }}</div>{% endif %}
+          </div>
+          <form method="POST" action="{{ url_for('customer.remove_item', order_id=order.id, item_id=item.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="item-remove" type="submit">Remove</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <form method="POST" action="{{ url_for('customer.add_item', order_id=order.id) }}" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="photo">Photo</label>
+        <input type="file" id="photo" name="photo" accept="image/*" required>
+        <label for="description">What is it?</label>
+        <input type="text" id="description" name="description" placeholder="e.g. Blue formal shirt">
+        <label for="instructions">Instructions (optional)</label>
+        <input type="text" id="instructions" name="instructions" placeholder="e.g. Delicate wash, no bleach">
+        <button class="btn btn-neutral btn-block" type="submit" style="margin-top:14px;">Add item</button>
+      </form>
+
+      <hr class="divider">
+      <form method="POST" action="{{ url_for('customer.submit_for_pickup', order_id=order.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-primary btn-block" type="submit" {% if not order.items %}disabled{% endif %}>
+          Submit {{ order.items|length }} item(s) for pickup approval
+        </button>
+      </form>
+    </div>
+
+  {% else %}
+    {% if order.status == 'OUT_FOR_DELIVERY' %}
+    <div class="card" style="text-align:center; border-color: var(--amber);">
+      <p class="muted" style="margin:0 0 6px;">Give this code to the delivery person once your laundry arrives</p>
+      <div style="font-family:var(--font-mono); font-size:36px; font-weight:600; letter-spacing:0.3em; color: var(--amber-deep);">
+        {{ order.delivery_otp }}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <h3>Tracking</h3>
+      <ul class="stepper">
+        {% if order.status == CANCELLED %}
+          <li class="current">Order cancelled</li>
+        {% else %}
+          {% for key, label in ORDER_STATUSES %}
+            {% set idx = loop.index0 %}
+            <li class="{{ 'done' if idx < order.progress_index else ('current' if idx == order.progress_index else 'pending') }}">
+              {{ label }}
+              {% for log in order.logs %}
+                {% if log.status == key %}<span class="step-time">{{ log.timestamp.strftime('%d %b, %H:%M') }}</span>{% endif %}
+              {% endfor %}
+            </li>
+          {% endfor %}
+        {% endif %}
+      </ul>
+    </div>
+
+    <div class="section-title">Items in this order</div>
+    <div class="item-grid">
+      {% for item in order.items %}
+      <div class="item-card">
+        <img src="{{ item_photo_url(item.photo_path) }}" alt="{{ item.description }}">
+        <div class="item-body">
+          <div class="item-desc">{{ item.description or "Item " ~ loop.index }}</div>
+          {% if item.instructions %}<div class="item-instr">{{ item.instructions }}</div>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if order.special_notes %}
+    <div class="card"><strong>Pickup notes:</strong> {{ order.special_notes }}</div>
+  {% endif %}
+</div>
+{% endblock %}

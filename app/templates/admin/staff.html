@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Staff — Admin{% endblock %}
+{% block content %}
+<div class="wrap">
+  <div class="page-header">
+    <div>
+      <h1>Staff accounts</h1>
+      <p>Create a login for someone on your laundry team.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Add staff</h3>
+    <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="name">Name</label>
+      <input type="text" id="name" name="name" required>
+      <label for="phone">Phone number (their login)</label>
+      <input type="text" id="phone" name="phone" required>
+      <label for="password">Temporary password</label>
+      <input type="text" id="password" name="password" required minlength="6" placeholder="At least 6 characters">
+      <p class="field-hint">Share these two directly with them — there's no email/SMS invite in this prototype.</p>
+      <button class="btn btn-primary" type="submit" style="margin-top:14px;">Create staff account</button>
+    </form>
+  </div>
+
+  <div class="section-title">Current staff</div>
+  {% if staff_list %}
+  <table>
+    <thead><tr><th>Name</th><th>Phone</th><th>Added</th></tr></thead>
+    <tbody>
+      {% for s in staff_list %}
+      <tr>
+        <td data-label="Name">{{ s.name }}</td>
+        <td data-label="Phone">{{ s.phone }}</td>
+        <td data-label="Added">{{ s.created_at.strftime('%d %b %Y') }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <div class="empty-state">No staff accounts yet.</div>
+  {% endif %}
+</div>
+{% endblock %}

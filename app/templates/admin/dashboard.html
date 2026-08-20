@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Admin — FreshFold{% endblock %}
+{% block content %}
+<div class="wrap">
+  <div class="page-header">
+    <div>
+      <h1>Overview</h1>
+      <p>Everything that needs your attention right now.</p>
+    </div>
+  </div>
+
+  <div class="stat-grid">
+    <a class="stat-card" href="{{ url_for('admin.customers', status='PENDING') }}">
+      <div class="stat-num">{{ pending_customers }}</div>
+      <div class="stat-label">Customers awaiting ID review</div>
+    </a>
+    <a class="stat-card" href="{{ url_for('admin.orders', status='PENDING_PICKUP_APPROVAL') }}">
+      <div class="stat-num">{{ pending_pickups }}</div>
+      <div class="stat-label">Pickups awaiting approval</div>
+    </a>
+    <a class="stat-card" href="{{ url_for('admin.orders', status='ALL') }}">
+      <div class="stat-num">{{ active_orders }}</div>
+      <div class="stat-label">Orders in progress</div>
+    </a>
+  </div>
+
+  <div class="card">
+    <div class="card-row">
+      <div>
+        <h3 style="margin-bottom:2px;">Pickup slots</h3>
+        <p class="muted" style="margin:0;">Open new time windows for customers to book.</p>
+      </div>
+      <a class="btn btn-neutral btn-small" href="{{ url_for('admin.slots') }}">Manage slots</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

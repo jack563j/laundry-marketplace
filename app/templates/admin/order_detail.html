@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Order #{{ order.id }} — Admin{% endblock %}
+{% block content %}
+<div class="wrap">
+  <div class="page-header">
+    <div>
+      <h1>Order #{{ order.id }}</h1>
+      <p>{{ order.customer.name }} · {{ order.customer.phone }} · {{ order.pickup_slot.date.strftime('%d %b') }}, {{ order.pickup_slot.start_time.strftime('%H:%M') }}–{{ order.pickup_slot.end_time.strftime('%H:%M') }} · {{ order.pickup_slot.location }}</p>
+    </div>
+    {% if order.status == 'CANCELLED' %}<span class="badge badge-coral">Cancelled</span>
+    {% else %}<span class="badge badge-teal">{{ order.status_label }}</span>{% endif %}
+  </div>
+
+  {% if order.special_notes %}
+    <div class="card"><strong>Customer notes:</strong> {{ order.special_notes }}</div>
+  {% endif %}
+
+  <div class="section-title">Items uploaded by customer ({{ order.items|length }})</div>
+  <div class="item-grid">
+    {% for item in order.items %}
+    <div class="item-card">
+      <img src="{{ item_photo_url(item.photo_path) }}" alt="{{ item.description }}">
+      <div class="item-body">
+        <div class="item-desc">{{ item.description or "Item " ~ loop.index }}</div>
+        {% if item.instructions %}<div class="item-instr">{{ item.instructions }}</div>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if order.status == 'PENDING_PICKUP_APPROVAL' %}
+  <div class="card">
+    <h3>Approve this pickup?</h3>
+    <p class="muted">Confirm the physical bag matches what's shown above before approving.</p>
+    <form method="POST" action="{{ url_for('admin.approve_pickup', order_id=order.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="staff_id">Assign to staff (optional)</label>
+      <select id="staff_id" name="staff_id">
+        <option value="">— Unassigned —</option>
+        {% for s in staff %}
+          <option value="{{ s.id }}">{{ s.name }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn btn-primary" type="submit" style="margin-top:14px;">Approve pickup</button>
+    </form>
+    <hr class="divider">
+    <form method="POST" action="{{ url_for('admin.send_back', order_id=order.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="reason">Send back for correction</label>
+      <input type="text" id="reason" name="reason" placeholder="e.g. Photo missing for one item">
+      <button class="btn btn-outline" type="submit" style="margin-top:10px;">Send back to customer</button>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if order.status not in ['AWAITING_ITEMS', 'PENDING_PICKUP_APPROVAL', 'CANCELLED'] %}
+  <div class="card">
+    <h3>Staff assignment</h3>
+    <form method="POST" action="{{ url_for('admin.assign_staff', order_id=order.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <select name="staff_id" onchange="this.form.submit()">
+        <option value="">— Unassigned —</option>
+        {% for s in staff %}
+          <option value="{{ s.id }}" {% if order.assigned_staff_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <h3>Tracking</h3>
+    <ul class="stepper">
+      {% if order.status == CANCELLED %}
+        <li class="current">Order cancelled</li>
+      {% else %}
+        {% for key, label in ORDER_STATUSES %}
+          {% set idx = loop.index0 %}
+          <li class="{{ 'done' if idx < order.progress_index else ('current' if idx == order.progress_index else 'pending') }}">
+            {{ label }}
+            {% for log in order.logs %}
+              {% if log.status == key %}<span class="step-time">{{ log.timestamp.strftime('%d %b, %H:%M') }}</span>{% endif %}
+            {% endfor %}
+          </li>
+        {% endfor %}
+      {% endif %}
+    </ul>
+  </div>
+</div>
+{% endblock %}

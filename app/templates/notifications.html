@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Notifications — FreshFold{% endblock %}
+{% block content %}
+<div class="wrap">
+  <div class="page-header">
+    <div>
+      <h1>Notifications</h1>
+      <p>Most recent first.</p>
+    </div>
+  </div>
+
+  {% if items %}
+    {% for n in items %}
+    <a href="{{ n.link or '#' }}" style="text-decoration:none; color:inherit;">
+      <div class="card" style="{% if not n.is_read %}border-color: var(--teal);{% endif %} margin-bottom:10px;">
+        <div>{{ n.message }}</div>
+        <p class="muted" style="margin:4px 0 0; font-size:12px;">{{ n.created_at.strftime('%d %b, %H:%M') }}</p>
+      </div>
+    </a>
+    {% endfor %}
+  {% else %}
+    <div class="empty-state">Nothing yet — you'll see updates here as your orders move.</div>
+  {% endif %}
+</div>
+{% endblock %}

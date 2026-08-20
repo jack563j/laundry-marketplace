@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Customers — Admin{% endblock %}
+{% block content %}
+<div class="wrap">
+  <div class="page-header">
+    <div>
+      <h1>Customer ID review</h1>
+      <p>Check the ID proof photo before approving an account.</p>
+    </div>
+    <div>
+      <a class="btn btn-small {{ 'btn-primary' if status=='PENDING' else 'btn-neutral' }}" href="{{ url_for('admin.customers', status='PENDING') }}">Pending</a>
+      <a class="btn btn-small {{ 'btn-primary' if status=='APPROVED' else 'btn-neutral' }}" href="{{ url_for('admin.customers', status='APPROVED') }}">Approved</a>
+      <a class="btn btn-small {{ 'btn-primary' if status=='REJECTED' else 'btn-neutral' }}" href="{{ url_for('admin.customers', status='REJECTED') }}">Rejected</a>
+      <a class="btn btn-small {{ 'btn-primary' if status=='ALL' else 'btn-neutral' }}" href="{{ url_for('admin.customers', status='ALL') }}">All</a>
+    </div>
+  </div>
+
+  {% if customers %}
+    {% for c in customers %}
+    <div class="card">
+      <div class="card-row" style="align-items:flex-start;">
+        <div>
+          <strong>{{ c.name }}</strong>
+          {% if c.verification_status == 'PENDING' %}<span class="badge badge-amber">Pending</span>
+          {% elif c.verification_status == 'APPROVED' %}<span class="badge badge-teal">Approved</span>
+          {% else %}<span class="badge badge-coral">Rejected</span>{% endif %}
+          <p class="muted" style="margin:4px 0 0;">{{ c.phone }} {% if c.email %}· {{ c.email }}{% endif %}</p>
+          <p class="muted" style="margin:2px 0 0;">{{ c.address }}</p>
+          {% if c.id_proof_path %}
+            <div style="display:flex; gap:12px; margin-top:8px; flex-wrap:wrap;">
+              <div>
+                <div class="field-hint" style="margin:0 0 4px;">ID proof</div>
+                <a href="{{ id_proof_url(c.id_proof_path) }}" target="_blank">
+                  <img class="id-preview" src="{{ id_proof_url(c.id_proof_path) }}" alt="ID proof for {{ c.name }}">
+                </a>
+              </div>
+              {% if c.selfie_path %}
+              <div>
+                <div class="field-hint" style="margin:0 0 4px;">Live photo</div>
+                <a href="{{ selfie_url(c.selfie_path) }}" target="_blank">
+                  <img class="id-preview" src="{{ selfie_url(c.selfie_path) }}" alt="Live photo of {{ c.name }}">
+                </a>
+              </div>
+              {% endif %}
+            </div>
+          {% endif %}
+          {% if c.verification_status == 'REJECTED' and c.rejection_reason %}
+            <p class="muted" style="margin-top:6px;">Reason: {{ c.rejection_reason }}</p>
+          {% endif %}
+        </div>
+        {% if c.verification_status == 'PENDING' %}
+        <div style="display:flex; flex-direction:column; gap:8px; min-width:180px;">
+          <form method="POST" action="{{ url_for('admin.approve_customer', user_id=c.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-primary btn-small btn-block" type="submit">Approve</button>
+          </form>
+          <form method="POST" action="{{ url_for('admin.reject_customer', user_id=c.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="text" name="reason" placeholder="Reason (optional)" style="margin-bottom:6px; font-size:12.5px; padding:6px 10px;">
+            <button class="btn btn-outline btn-small btn-block" type="submit">Reject</button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty-state">No customers in this category.</div>
+  {% endif %}
+</div>
+{% endblock %}
