@@ -66,12 +66,14 @@ def create_app():
     from app.admin.routes import admin_bp
     from app.staff.routes import staff_bp
     from app.main import main_bp
+    from app.payment.routes import payment_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(customer_bp, url_prefix="/customer")
     app.register_blueprint(admin_bp, url_prefix="/admin")
     app.register_blueprint(staff_bp, url_prefix="/staff")
+    app.register_blueprint(payment_bp, url_prefix="/payment")
 
     with app.app_context():
         db.create_all()

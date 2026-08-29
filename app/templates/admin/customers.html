@@ -5,7 +5,7 @@
   <div class="page-header">
     <div>
       <h1>Customer ID review</h1>
-      <p>Check the ID proof photo before approving an account.</p>
+      <p>Check the ID proof photo and face-match score before approving an account.</p>
     </div>
     <div>
       <a class="btn btn-small {{ 'btn-primary' if status=='PENDING' else 'btn-neutral' }}" href="{{ url_for('admin.customers', status='PENDING') }}">Pending</a>
@@ -24,8 +24,33 @@
           {% if c.verification_status == 'PENDING' %}<span class="badge badge-amber">Pending</span>
           {% elif c.verification_status == 'APPROVED' %}<span class="badge badge-teal">Approved</span>
           {% else %}<span class="badge badge-coral">Rejected</span>{% endif %}
+
+          <!-- KYC Face Match Score Badge -->
+          {% if c.kyc_face_status == 'MATCHED' %}
+            <span class="badge badge-teal" title="Face++ confidence: {{ c.kyc_face_score }}%">
+              🟢 Face match {{ c.kyc_face_score }}%
+            </span>
+          {% elif c.kyc_face_status == 'MISMATCH' %}
+            <span class="badge badge-coral" title="Face++ confidence: {{ c.kyc_face_score }}%">
+              🔴 Face mismatch {{ c.kyc_face_score }}%
+            </span>
+          {% elif c.kyc_face_status == 'NO_FACE' %}
+            <span class="badge badge-amber" title="No face detected in one or both photos">
+              ⚠️ No face detected
+            </span>
+          {% elif c.kyc_face_status == 'PENDING' %}
+            <span class="badge" style="background:#f3f4f6; color:#6b7280;" title="Face check running in background">
+              ⏳ Checking faces…
+            </span>
+          {% elif c.kyc_face_status == 'ERROR' %}
+            <span class="badge" style="background:#f3f4f6; color:#6b7280;" title="Face check failed — review manually">
+              ⚙️ Check failed
+            </span>
+          {% endif %}
+
           <p class="muted" style="margin:4px 0 0;">{{ c.phone }} {% if c.email %}· {{ c.email }}{% endif %}</p>
           <p class="muted" style="margin:2px 0 0;">{{ c.address }}</p>
+
           {% if c.id_proof_path %}
             <div style="display:flex; gap:12px; margin-top:8px; flex-wrap:wrap;">
               <div>
@@ -36,7 +61,7 @@
               </div>
               {% if c.selfie_path %}
               <div>
-                <div class="field-hint" style="margin:0 0 4px;">Live photo</div>
+                <div class="field-hint" style="margin:0 0 4px;">Live photo (selfie)</div>
                 <a href="{{ selfie_url(c.selfie_path) }}" target="_blank">
                   <img class="id-preview" src="{{ selfie_url(c.selfie_path) }}" alt="Live photo of {{ c.name }}">
                 </a>
@@ -44,20 +69,22 @@
               {% endif %}
             </div>
           {% endif %}
+
           {% if c.verification_status == 'REJECTED' and c.rejection_reason %}
             <p class="muted" style="margin-top:6px;">Reason: {{ c.rejection_reason }}</p>
           {% endif %}
         </div>
+
         {% if c.verification_status == 'PENDING' %}
         <div style="display:flex; flex-direction:column; gap:8px; min-width:180px;">
           <form method="POST" action="{{ url_for('admin.approve_customer', user_id=c.id) }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button class="btn btn-primary btn-small btn-block" type="submit">Approve</button>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-primary btn-small btn-block" type="submit">✅ Approve</button>
           </form>
           <form method="POST" action="{{ url_for('admin.reject_customer', user_id=c.id) }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="text" name="reason" placeholder="Reason (optional)" style="margin-bottom:6px; font-size:12.5px; padding:6px 10px;">
-            <button class="btn btn-outline btn-small btn-block" type="submit">Reject</button>
+            <button class="btn btn-outline btn-small btn-block" type="submit">✖ Reject</button>
           </form>
         </div>
         {% endif %}

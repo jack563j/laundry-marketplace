@@ -1,7 +1,7 @@
 from datetime import date, time, timedelta
 
 from app.extensions import db
-from app.models import User, PickupSlot
+from app.models import User, PickupSlot, ServiceType
 
 
 def seed_demo_data():
@@ -46,3 +46,21 @@ def seed_demo_data():
     ]
     db.session.add_all(slots)
     db.session.commit()
+
+    # ---------------------------------------------------------------------------
+    # Default laundry service types with prices (admin can edit these later)
+    # ---------------------------------------------------------------------------
+    if ServiceType.query.count() == 0:
+        services = [
+            ServiceType(name="Wash",           description="Machine wash + spin dry",          price=30.0),
+            ServiceType(name="Iron",            description="Steam iron / press",               price=20.0),
+            ServiceType(name="Wash & Iron",     description="Machine wash + steam iron",        price=45.0),
+            ServiceType(name="Dry Clean",       description="Professional dry cleaning",        price=120.0),
+            ServiceType(name="Fold",            description="Neat folding after wash",          price=10.0),
+            ServiceType(name="Stain Removal",   description="Targeted stain treatment",         price=50.0),
+            ServiceType(name="Delicate Wash",   description="Hand wash for delicate fabrics",   price=60.0),
+            ServiceType(name="Bleach",          description="Whitening bleach treatment",       price=40.0),
+            ServiceType(name="Curtains/Drapes", description="Wash + iron for curtains/drapes",  price=150.0),
+        ]
+        db.session.add_all(services)
+        db.session.commit()

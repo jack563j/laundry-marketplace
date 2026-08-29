@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Service Pricing — Admin{% endblock %}
+{% block content %}
+<div class="wrap">
+  <div class="page-header">
+    <div>
+      <h1>Service pricing</h1>
+      <p>Set default prices for laundry services. Customers select these per item when adding to an order.</p>
+    </div>
+    <a class="btn btn-small btn-neutral" href="#add-service">+ Add service</a>
+  </div>
+
+  <!-- Current services table -->
+  {% if services %}
+  <div class="section-title">Active services</div>
+  {% for svc in services %}
+  <div class="card" style="margin-bottom:10px;">
+    <form method="POST" action="{{ url_for('admin.services') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="update">
+      <input type="hidden" name="service_id" value="{{ svc.id }}">
+      <div class="card-row" style="align-items:center; gap:12px; flex-wrap:wrap;">
+        <div style="flex:1; min-width:160px;">
+          <strong>{{ svc.name }}</strong>
+          {% if not svc.is_active %}<span class="badge badge-coral" style="margin-left:6px;">Inactive</span>{% endif %}
+          <input type="text" name="description" value="{{ svc.description or '' }}"
+                 placeholder="Description (optional)" style="margin-top:6px; font-size:13px; padding:6px 10px;">
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-weight:600; color:var(--text-muted);">₹</span>
+          <input type="number" name="price" value="{{ '%.2f'|format(svc.price) }}"
+                 step="0.01" min="0" required style="width:90px; font-size:14px; text-align:right;">
+        </div>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <label style="font-size:13px; color:var(--text-muted); cursor:pointer;">
+            <input type="checkbox" name="is_active" value="1" {% if svc.is_active %}checked{% endif %}
+                   style="margin-right:4px;">
+            Active
+          </label>
+        </div>
+        <button class="btn btn-small btn-primary" type="submit">Save</button>
+      </div>
+    </form>
+  </div>
+  {% endfor %}
+  {% else %}
+    <div class="empty-state">No services yet. Add one below.</div>
+  {% endif %}
+
+  <!-- Add new service -->
+  <div class="card" id="add-service" style="margin-top:24px;">
+    <h3>Add new service</h3>
+    <form method="POST" action="{{ url_for('admin.services') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="add">
+      <label for="svc_name">Service name *</label>
+      <input type="text" id="svc_name" name="name" required placeholder="e.g. Curtain Wash">
+      <label for="svc_desc">Description (optional)</label>
+      <input type="text" id="svc_desc" name="description" placeholder="e.g. Wash + dry for curtains/drapes">
+      <label for="svc_price">Price (₹) *</label>
+      <input type="number" id="svc_price" name="price" required step="0.01" min="0" placeholder="e.g. 80.00">
+      <button class="btn btn-primary" type="submit" style="margin-top:14px;">Add service</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -4,7 +4,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_required, current_user
 
 from app.extensions import db
-from app.models import User, PickupSlot, Order, CANCELLED, notify_user, notify_role
+from app.models import User, PickupSlot, Order, ServiceType, CANCELLED, notify_user, notify_role
 from app.utils import role_required
 
 admin_bp = Blueprint("admin", __name__, template_folder="../templates/admin")
@@ -53,6 +53,11 @@ def approve_customer(user_id):
     user.rejection_reason = None
     notify_user(user, "Your ID was approved — you can now book a pickup.", link="/customer/book")
     db.session.commit()
+
+    # WhatsApp notification
+    from app.services.whatsapp_service import notify_kyc_approved
+    notify_kyc_approved(user)
+
     flash(f"{user.name} approved.", "success")
     return redirect(url_for("admin.customers"))
 
@@ -118,6 +123,23 @@ def order_detail(order_id):
     return render_template("admin/order_detail.html", order=order, staff=staff)
 
 
+@admin_bp.route("/orders/<int:order_id>/set-price", methods=["POST"])
+def set_order_price(order_id):
+    """Admin can override the auto-computed total before the customer pays."""
+    order = Order.query.get_or_404(order_id)
+    try:
+        price = float(request.form.get("total_amount", "").strip())
+        if price < 0:
+            raise ValueError
+    except (ValueError, AttributeError):
+        flash("Enter a valid positive amount.", "error")
+        return redirect(url_for("admin.order_detail", order_id=order.id))
+    order.total_amount = round(price, 2)
+    db.session.commit()
+    flash(f"Order total set to ₹{order.total_amount:.2f}.", "success")
+    return redirect(url_for("admin.order_detail", order_id=order.id))
+
+
 @admin_bp.route("/orders/<int:order_id>/approve-pickup", methods=["POST"])
 def approve_pickup(order_id):
     order = Order.query.get_or_404(order_id)
@@ -126,6 +148,13 @@ def approve_pickup(order_id):
     staff_id = request.form.get("staff_id")
     if staff_id:
         order.assigned_staff_id = int(staff_id)
+
+    # Auto-compute total from item services if not already set by admin
+    if order.total_amount is None:
+        computed = order.computed_total
+        if computed > 0:
+            order.total_amount = computed
+
     order.advance_to("PICKUP_APPROVED", current_user, note="Bag contents matched uploaded items — pickup approved")
     if order.assigned_staff_id:
         staff = User.query.get(order.assigned_staff_id)
@@ -133,6 +162,11 @@ def approve_pickup(order_id):
     else:
         notify_role("staff", f"Order #{order.id} approved for pickup — unassigned", link=f"/staff/order/{order.id}")
     db.session.commit()
+
+    # WhatsApp notification to customer
+    from app.services.whatsapp_service import notify_pickup_confirmed
+    notify_pickup_confirmed(order.customer, order.pickup_slot)
+
     flash("Pickup approved.", "success")
     return redirect(url_for("admin.order_detail", order_id=order.id))
 
@@ -192,3 +226,53 @@ def manage_staff():
 
     staff_list = User.query.filter_by(role="staff").order_by(User.created_at.desc()).all()
     return render_template("admin/staff.html", staff_list=staff_list)
+
+
+# ---------------------------------------------------------------------------
+# Service types & pricing
+# ---------------------------------------------------------------------------
+
+@admin_bp.route("/services", methods=["GET", "POST"])
+def services():
+    if request.method == "POST":
+        action = request.form.get("action")
+
+        if action == "add":
+            name = request.form.get("name", "").strip()
+            desc = request.form.get("description", "").strip()
+            try:
+                price = float(request.form.get("price", "").strip())
+                if price < 0:
+                    raise ValueError
+            except (ValueError, AttributeError):
+                flash("Enter a valid price.", "error")
+                return redirect(url_for("admin.services"))
+            if not name:
+                flash("Service name is required.", "error")
+                return redirect(url_for("admin.services"))
+            if ServiceType.query.filter_by(name=name).first():
+                flash("A service with this name already exists.", "error")
+                return redirect(url_for("admin.services"))
+            db.session.add(ServiceType(name=name, description=desc, price=price))
+            db.session.commit()
+            flash(f"Service '{name}' added.", "success")
+
+        elif action == "update":
+            svc_id = request.form.get("service_id")
+            svc = ServiceType.query.get_or_404(int(svc_id))
+            try:
+                svc.price = float(request.form.get("price", "").strip())
+                if svc.price < 0:
+                    raise ValueError
+            except (ValueError, AttributeError):
+                flash("Enter a valid price.", "error")
+                return redirect(url_for("admin.services"))
+            svc.description = request.form.get("description", svc.description).strip()
+            svc.is_active = request.form.get("is_active") == "1"
+            db.session.commit()
+            flash(f"'{svc.name}' updated.", "success")
+
+        return redirect(url_for("admin.services"))
+
+    all_services = ServiceType.query.order_by(ServiceType.name).all()
+    return render_template("admin/services.html", services=all_services)

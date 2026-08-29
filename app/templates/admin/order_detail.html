@@ -7,15 +7,24 @@
       <h1>Order #{{ order.id }}</h1>
       <p>{{ order.customer.name }} · {{ order.customer.phone }} · {{ order.pickup_slot.date.strftime('%d %b') }}, {{ order.pickup_slot.start_time.strftime('%H:%M') }}–{{ order.pickup_slot.end_time.strftime('%H:%M') }} · {{ order.pickup_slot.location }}</p>
     </div>
-    {% if order.status == 'CANCELLED' %}<span class="badge badge-coral">Cancelled</span>
-    {% else %}<span class="badge badge-teal">{{ order.status_label }}</span>{% endif %}
+    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      {% if order.status == 'CANCELLED' %}<span class="badge badge-coral">Cancelled</span>
+      {% else %}<span class="badge badge-teal">{{ order.status_label }}</span>{% endif %}
+      {% if order.payment_status == 'PAID' %}
+        <span class="badge badge-teal">✅ Paid ₹{{ '%.2f'|format(order.total_amount or 0) }}</span>
+        <a class="btn btn-small btn-neutral" href="{{ url_for('payment.download_invoice', order_id=order.id) }}">⬇ Invoice PDF</a>
+      {% elif order.payment_status == 'UNPAID' %}
+        <span class="badge badge-amber">⏳ Unpaid</span>
+      {% endif %}
+    </div>
   </div>
 
   {% if order.special_notes %}
     <div class="card"><strong>Customer notes:</strong> {{ order.special_notes }}</div>
   {% endif %}
 
-  <div class="section-title">Items uploaded by customer ({{ order.items|length }})</div>
+  <!-- Items with services breakdown -->
+  <div class="section-title">Items ({{ order.items|length }}) — Estimated total: ₹{{ '%.2f'|format(order.computed_total) }}</div>
   <div class="item-grid">
     {% for item in order.items %}
     <div class="item-card">
@@ -23,9 +32,38 @@
       <div class="item-body">
         <div class="item-desc">{{ item.description or "Item " ~ loop.index }}</div>
         {% if item.instructions %}<div class="item-instr">{{ item.instructions }}</div>{% endif %}
+        {% if item.services %}
+        <div style="margin-top:6px; font-size:12px; color:var(--text-muted);">
+          {% for svc in item.services %}
+            <span style="display:inline-block; background:#f0fdf4; color:#166534; border-radius:4px; padding:1px 6px; margin:2px 2px 0 0;">
+              {{ svc.service_type.name }} ₹{{ '%.0f'|format(svc.price_snapshot) }}
+            </span>
+          {% endfor %}
+          <div style="margin-top:4px; font-weight:600; color:#111;">Subtotal: ₹{{ '%.2f'|format(item.item_total) }}</div>
+        </div>
+        {% endif %}
       </div>
     </div>
     {% endfor %}
+  </div>
+
+  <!-- Set/override price -->
+  <div class="card">
+    <h3>Order pricing</h3>
+    <p class="muted">Auto-computed from selected services: <strong>₹{{ '%.2f'|format(order.computed_total) }}</strong></p>
+    {% if order.total_amount is not none %}
+      <p class="muted">Admin-set total: <strong>₹{{ '%.2f'|format(order.total_amount) }}</strong></p>
+    {% endif %}
+    {% if order.payment_status != 'PAID' %}
+    <form method="POST" action="{{ url_for('admin.set_order_price', order_id=order.id) }}" style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="number" name="total_amount"
+             value="{{ '%.2f'|format(order.total_amount or order.computed_total) }}"
+             step="0.01" min="0" style="width:140px;" placeholder="₹ Amount">
+      <button class="btn btn-small btn-neutral" type="submit">Override total</button>
+    </form>
+    <p class="field-hint">You can override the auto-computed total (e.g. for discounts or add-ons). The customer will pay this amount via Razorpay.</p>
+    {% endif %}
   </div>
 
   {% if order.status == 'PENDING_PICKUP_APPROVAL' %}

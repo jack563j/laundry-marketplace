@@ -50,6 +50,10 @@ class User(UserMixin, db.Model):
     verification_status = db.Column(db.String(20), default="PENDING")  # PENDING|APPROVED|REJECTED
     rejection_reason = db.Column(db.String(255))
 
+    # KYC face-matching result (populated automatically after signup via Face++ API)
+    kyc_face_score = db.Column(db.Float, nullable=True)          # 0.0–100.0 confidence score
+    kyc_face_status = db.Column(db.String(20), default="PENDING") # PENDING|MATCHED|MISMATCH|ERROR|NO_FACE
+
     orders = db.relationship("Order", backref="customer", foreign_keys="Order.customer_id")
 
     def set_password(self, raw):
@@ -61,6 +65,23 @@ class User(UserMixin, db.Model):
     @property
     def is_verified_customer(self):
         return self.role == "customer" and self.verification_status == "APPROVED"
+
+
+# ---------------------------------------------------------------------------
+# ServiceType — laundry services with editable default prices
+# ---------------------------------------------------------------------------
+class ServiceType(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), nullable=False, unique=True)
+    description = db.Column(db.String(255))
+    price = db.Column(db.Float, nullable=False)   # price in INR, admin-editable
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    item_services = db.relationship("OrderItemService", backref="service_type")
+
+    def __repr__(self):
+        return f"<ServiceType {self.name} ₹{self.price}>"
 
 
 class PickupSlot(db.Model):
@@ -98,11 +119,17 @@ class Order(db.Model):
     delivery_otp = db.Column(db.String(6))
     otp_attempts = db.Column(db.Integer, default=0)
 
+    # Payment — admin sets/confirms total_amount before customer pays
+    total_amount = db.Column(db.Float, nullable=True)          # in INR; null until computed
+    payment_status = db.Column(db.String(20), default="UNPAID")  # UNPAID | PAID | WAIVED
+    payment_id = db.Column(db.String(100), nullable=True)       # Razorpay payment_id on success
+
     items = db.relationship("OrderItem", backref="order", cascade="all, delete-orphan")
     logs = db.relationship(
         "OrderStatusLog", backref="order", cascade="all, delete-orphan",
         order_by="OrderStatusLog.timestamp",
     )
+    payments = db.relationship("Payment", backref="order", cascade="all, delete-orphan")
     assigned_staff = db.relationship("User", foreign_keys=[assigned_staff_id])
 
     @property
@@ -114,6 +141,15 @@ class Order(db.Model):
     @property
     def progress_index(self):
         return status_index(self.status)
+
+    @property
+    def computed_total(self):
+        """Sum of all item-service price snapshots across all items."""
+        total = 0.0
+        for item in self.items:
+            for svc in item.services:
+                total += svc.price_snapshot
+        return round(total, 2)
 
     def advance_to(self, new_status, actor, note=None, notify_customer=True):
         self.status = new_status
@@ -136,6 +172,36 @@ class OrderItem(db.Model):
     description = db.Column(db.String(120))  # e.g. "Blue shirt"
     instructions = db.Column(db.String(255))  # e.g. "Delicate wash, no bleach"
     checked_at_laundry = db.Column(db.Boolean, default=False)
+
+    services = db.relationship("OrderItemService", backref="item", cascade="all, delete-orphan")
+
+    @property
+    def item_total(self):
+        """Total cost of all services selected for this item."""
+        return round(sum(s.price_snapshot for s in self.services), 2)
+
+
+# ---------------------------------------------------------------------------
+# OrderItemService — which services were selected for each item (price snapshotted)
+# ---------------------------------------------------------------------------
+class OrderItemService(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    order_item_id = db.Column(db.Integer, db.ForeignKey("order_item.id"), nullable=False)
+    service_type_id = db.Column(db.Integer, db.ForeignKey("service_type.id"), nullable=False)
+    price_snapshot = db.Column(db.Float, nullable=False)  # price at time of order, frozen
+
+
+# ---------------------------------------------------------------------------
+# Payment — Razorpay transaction record
+# ---------------------------------------------------------------------------
+class Payment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(db.Integer, db.ForeignKey("order.id"), nullable=False)
+    razorpay_order_id = db.Column(db.String(100), nullable=True)
+    razorpay_payment_id = db.Column(db.String(100), nullable=True)
+    amount = db.Column(db.Float, nullable=False)   # in INR
+    status = db.Column(db.String(20), default="CREATED")  # CREATED | SUCCESS | FAILED
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class OrderStatusLog(db.Model):

@@ -4,7 +4,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_required, current_user
 
 from app.extensions import db
-from app.models import PickupSlot, Order, OrderItem, notify_role
+from app.models import PickupSlot, Order, OrderItem, OrderItemService, ServiceType, notify_role
 from app.utils import role_required, save_upload
 
 customer_bp = Blueprint("customer", __name__, template_folder="../templates/customer")
@@ -63,7 +63,14 @@ def order_detail(order_id):
     order = Order.query.get_or_404(order_id)
     if order.customer_id != current_user.id:
         abort(403)
-    return render_template("customer/order_detail.html", order=order)
+    active_services = ServiceType.query.filter_by(is_active=True).order_by(ServiceType.name).all()
+    razorpay_key = current_app.config.get("RAZORPAY_KEY_ID", "")
+    return render_template(
+        "customer/order_detail.html",
+        order=order,
+        active_services=active_services,
+        razorpay_key=razorpay_key,
+    )
 
 
 @customer_bp.route("/order/<int:order_id>/add-item", methods=["POST"])
@@ -78,6 +85,8 @@ def add_item(order_id):
     photo = request.files.get("photo")
     description = request.form.get("description", "").strip()
     instructions = request.form.get("instructions", "").strip()
+    # Selected service IDs (multi-select checkboxes)
+    service_ids = request.form.getlist("service_ids")
 
     if not photo or photo.filename == "":
         flash("Please attach a photo of the item.", "error")
@@ -88,8 +97,29 @@ def add_item(order_id):
         flash("Photo must be a PNG/JPG/WEBP image.", "error")
         return redirect(url_for("customer.order_detail", order_id=order.id))
 
-    item = OrderItem(order_id=order.id, photo_path=path, description=description, instructions=instructions)
+    if not service_ids:
+        flash("Please select at least one service for this item.", "error")
+        return redirect(url_for("customer.order_detail", order_id=order.id))
+
+    item = OrderItem(
+        order_id=order.id,
+        photo_path=path,
+        description=description,
+        instructions=instructions,
+    )
     db.session.add(item)
+    db.session.flush()  # get item.id before adding services
+
+    # Snapshot price at order time so admin price changes don't affect past orders
+    for sid in service_ids:
+        svc = ServiceType.query.get(int(sid))
+        if svc and svc.is_active:
+            db.session.add(OrderItemService(
+                order_item_id=item.id,
+                service_type_id=svc.id,
+                price_snapshot=svc.price,
+            ))
+
     db.session.commit()
     return redirect(url_for("customer.order_detail", order_id=order.id))
 

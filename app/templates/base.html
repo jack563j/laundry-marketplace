@@ -33,6 +33,7 @@
         <a href="{{ url_for('admin.customers') }}">Customers</a>
         <a href="{{ url_for('admin.slots') }}">Slots</a>
         <a href="{{ url_for('admin.orders') }}">Orders</a>
+        <a href="{{ url_for('admin.services') }}">Pricing</a>
         <a href="{{ url_for('admin.manage_staff') }}">Staff</a>
       {% elif current_user.role == 'staff' %}
         <a href="{{ url_for('staff.dashboard') }}">My queue</a>

@@ -91,8 +91,13 @@ def advance(order_id):
     if next_status == "OUT_FOR_DELIVERY":
         order.delivery_otp = generate_otp()
         order.otp_attempts = 0
+        db.session.commit()
+        # WhatsApp OTP to customer
+        from app.services.whatsapp_service import notify_out_for_delivery
+        notify_out_for_delivery(order.customer, order)
+    else:
+        db.session.commit()
 
-    db.session.commit()
     flash("Order updated.", "success")
     return redirect(url_for("staff.order_detail", order_id=order.id))
 
@@ -113,6 +118,15 @@ def confirm_delivery(order_id):
         order.advance_to("DELIVERED", current_user, note="Delivery confirmed by customer OTP")
         db.session.commit()
         flash("Delivery confirmed.", "success")
+        # Send invoice PDF via WhatsApp
+        try:
+            from app.services.pdf_service import generate_invoice_pdf
+            from app.services.whatsapp_service import notify_delivered_with_invoice
+            pdf_bytes = generate_invoice_pdf(order)
+            notify_delivered_with_invoice(order.customer, order, pdf_bytes)
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).error("WhatsApp invoice send failed: %s", exc)
     else:
         order.otp_attempts = (order.otp_attempts or 0) + 1
         db.session.commit()

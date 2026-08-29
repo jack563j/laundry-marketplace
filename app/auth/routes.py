@@ -58,6 +58,7 @@ def signup():
             id_proof_path=id_proof_path,
             selfie_path=selfie_path,
             verification_status="PENDING",
+            kyc_face_status="PENDING",
         )
         user.set_password(password)
         db.session.add(user)
@@ -65,6 +66,16 @@ def signup():
 
         notify_role("admin", f"New signup: {user.name} needs ID review", link="/admin/customers?status=PENDING")
         db.session.commit()
+
+        # Kick off face-matching in the background — doesn't block the response.
+        # Result (score + status) is written back to the user record automatically.
+        from app.services.kyc_service import compare_faces_background
+        compare_faces_background(
+            current_app._get_current_object(),
+            user.id,
+            id_proof_path,
+            selfie_path,
+        )
 
         flash("Account created! An admin will review your ID proof before you can book a pickup.", "success")
         login_user(user)
