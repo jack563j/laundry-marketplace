@@ -14,8 +14,6 @@ def create_app():
 
     @app.after_request
     def set_security_headers(response):
-        # Baseline hardening headers — cheap to set, meaningfully raise the
-        # bar against clickjacking, MIME-sniffing, and referrer leakage.
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
@@ -77,6 +75,13 @@ def create_app():
 
     with app.app_context():
         db.create_all()
+        # Safe schema check: ensure assigned_staff_id exists on pickup_slot
+        try:
+            with db.engine.connect() as conn:
+                conn.execute(db.text('ALTER TABLE pickup_slot ADD COLUMN assigned_staff_id INTEGER REFERENCES "user"(id)'))
+                conn.commit()
+        except Exception:
+            pass
         from app.seed import seed_demo_data
         seed_demo_data()
 

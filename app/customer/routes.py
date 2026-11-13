@@ -48,7 +48,12 @@ def book():
             flash("That slot is no longer available. Pick another one.", "error")
             return render_template("customer/book.html", slots=open_slots)
 
-        order = Order(customer_id=current_user.id, pickup_slot_id=slot.id, special_notes=notes)
+        order = Order(
+            customer_id=current_user.id,
+            pickup_slot_id=slot.id,
+            special_notes=notes,
+            assigned_staff_id=slot.assigned_staff_id,
+        )
         order.advance_to("AWAITING_ITEMS", current_user, note="Order created")
         db.session.add(order)
         db.session.commit()

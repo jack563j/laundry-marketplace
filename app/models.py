@@ -92,8 +92,10 @@ class PickupSlot(db.Model):
     location = db.Column(db.String(255), nullable=False)
     capacity = db.Column(db.Integer, nullable=False, default=5)
     created_by = db.Column(db.Integer, db.ForeignKey("user.id"))
+    assigned_staff_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
 
     orders = db.relationship("Order", backref="pickup_slot")
+    assigned_staff = db.relationship("User", foreign_keys=[assigned_staff_id])
 
     @property
     def booked_count(self):

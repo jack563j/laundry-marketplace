@@ -5,7 +5,7 @@
   <div class="page-header">
     <div>
       <h1>Staff accounts</h1>
-      <p>Create a login for someone on your laundry team.</p>
+      <p>Create a login for someone on your laundry team, or manage existing staff.</p>
     </div>
   </div>
 
@@ -19,7 +19,7 @@
       <input type="text" id="phone" name="phone" required>
       <label for="password">Temporary password</label>
       <input type="text" id="password" name="password" required minlength="6" placeholder="At least 6 characters">
-      <p class="field-hint">Share these two directly with them — there's no email/SMS invite in this prototype.</p>
+      <p class="field-hint">Share these credentials directly with your staff member.</p>
       <button class="btn btn-primary" type="submit" style="margin-top:14px;">Create staff account</button>
     </form>
   </div>
@@ -27,13 +27,26 @@
   <div class="section-title">Current staff</div>
   {% if staff_list %}
   <table>
-    <thead><tr><th>Name</th><th>Phone</th><th>Added</th></tr></thead>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Phone</th>
+        <th>Added</th>
+        <th style="text-align:right;">Actions</th>
+      </tr>
+    </thead>
     <tbody>
       {% for s in staff_list %}
       <tr>
-        <td data-label="Name">{{ s.name }}</td>
+        <td data-label="Name"><b>{{ s.name }}</b></td>
         <td data-label="Phone">{{ s.phone }}</td>
         <td data-label="Added">{{ s.created_at.strftime('%d %b %Y') }}</td>
+        <td data-label="Actions" style="text-align:right;">
+          <form method="POST" action="{{ url_for('admin.delete_staff', staff_id=s.id) }}" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete staff account \'{{ s.name }}\'? Any active orders assigned to them will be returned to the unassigned queue.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" style="background:#EF4444; color:#ffffff; border:none; padding:5px 12px; border-radius:4px; font-size:12px; font-weight:600; cursor:pointer;">Delete</button>
+          </form>
+        </td>
       </tr>
       {% endfor %}
     </tbody>

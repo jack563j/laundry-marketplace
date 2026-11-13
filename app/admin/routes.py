@@ -82,6 +82,7 @@ def reject_customer(user_id):
 def slots():
     if request.method == "POST":
         try:
+            assigned_staff_id = request.form.get("assigned_staff_id")
             slot = PickupSlot(
                 date=datetime.strptime(request.form["date"], "%Y-%m-%d").date(),
                 start_time=datetime.strptime(request.form["start_time"], "%H:%M").time(),
@@ -89,6 +90,7 @@ def slots():
                 location=request.form["location"].strip(),
                 capacity=int(request.form.get("capacity") or 5),
                 created_by=current_user.id,
+                assigned_staff_id=int(assigned_staff_id) if assigned_staff_id else None,
             )
         except (ValueError, KeyError):
             flash("Please fill in the slot details correctly.", "error")
@@ -99,7 +101,25 @@ def slots():
         return redirect(url_for("admin.slots"))
 
     all_slots = PickupSlot.query.order_by(PickupSlot.date, PickupSlot.start_time).all()
-    return render_template("admin/slots.html", slots=all_slots)
+    staff_list = User.query.filter_by(role="staff").order_by(User.name).all()
+    return render_template("admin/slots.html", slots=all_slots, staff_list=staff_list)
+
+
+@admin_bp.route("/slots/<int:slot_id>/delete", methods=["POST"])
+def delete_slot(slot_id):
+    slot = PickupSlot.query.get_or_404(slot_id)
+    active_orders = [o for o in slot.orders if o.status != CANCELLED]
+    if active_orders:
+        flash(f"Cannot delete this slot: there are {len(active_orders)} active order(s) booked against it.", "error")
+        return redirect(url_for("admin.slots"))
+
+    for o in list(slot.orders):
+        db.session.delete(o)
+
+    db.session.delete(slot)
+    db.session.commit()
+    flash("Pickup slot deleted successfully.", "success")
+    return redirect(url_for("admin.slots"))
 
 
 # ---------------------------------------------------------------------------
@@ -226,6 +246,27 @@ def manage_staff():
 
     staff_list = User.query.filter_by(role="staff").order_by(User.created_at.desc()).all()
     return render_template("admin/staff.html", staff_list=staff_list)
+
+
+@admin_bp.route("/staff/<int:staff_id>/delete", methods=["POST"])
+def delete_staff(staff_id):
+    staff = User.query.filter_by(id=staff_id, role="staff").first_or_404()
+
+    # 1. Unassign from all orders
+    Order.query.filter_by(assigned_staff_id=staff.id).update({"assigned_staff_id": None})
+    # 2. Unassign from all pickup slots
+    PickupSlot.query.filter_by(assigned_staff_id=staff.id).update({"assigned_staff_id": None})
+    # 3. Disassociate from order status logs
+    from app.models import OrderStatusLog, Notification
+    OrderStatusLog.query.filter_by(changed_by_id=staff.id).update({"changed_by_id": None})
+    # 4. Remove notifications sent to this staff member
+    Notification.query.filter_by(user_id=staff.id).delete()
+
+    staff_name = staff.name
+    db.session.delete(staff)
+    db.session.commit()
+    flash(f"Staff account '{staff_name}' deleted. Assigned orders have been returned to the unassigned queue.", "success")
+    return redirect(url_for("admin.manage_staff"))
 
 
 # ---------------------------------------------------------------------------

@@ -43,7 +43,7 @@
         {% if unread_count %}<span class="badge badge-coral" style="position:absolute; top:-8px; right:-14px; padding:1px 6px;">{{ unread_count }}</span>{% endif %}
       </a>
       <span class="nav-user">{{ current_user.name }}</span>
-      <a href="{{ url_for('auth.logout') }}">Log out</a>
+      <a href="{{ url_for('auth.logout') }}" onclick="return confirm('Are you sure you want to log out?');">Log out</a>
     </div>
     {% endif %}
   </div>
